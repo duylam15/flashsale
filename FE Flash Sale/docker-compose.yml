@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  apple-pass:
+    image: <your_dockerhub_username>/apple-pass:latest
+    container_name: apple-pass-app
+    restart: always
+    ports:
+      - "127.0.0.1:3000:3000"
+    env_file:
+      - .env
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

@@ -1,0 +1,140 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// === PHẦN AUTH ===
+enum Role {
+  USER
+  ADMIN
+}
+
+enum TokenType {
+  ACCESS
+  REFRESH
+  RESET_PASSWORD
+  VERIFY_EMAIL
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  email           String    @unique
+  password        String
+  name            String?
+  role            Role      @default(USER)
+  isEmailVerified Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  tokens          Token[]
+  orders          Order[] 
+}
+
+model Token {
+  id          Int       @id @default(autoincrement())
+  token       String    @unique
+  type        TokenType
+  expires     DateTime
+  blacklisted Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  userId      Int
+  
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// === PHẦN FLASH SALE ===
+enum SessionStatus {
+  PENDING
+  ACTIVE
+  ENDED
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING // Đang được Worker xử lý từ Redis Queue
+  PAID
+  CANCELLED
+  FAILED     // Lỗi khi thanh toán hoặc trừ kho thất bại
+}
+
+model Product {
+  id                Int                @id @default(autoincrement())
+  name              String
+  description       String             @db.Text // Dùng Text cho mô tả dài
+  basePrice         Decimal            @db.Decimal(10, 2) // Tránh sai số tiền tệ
+  imageUrl          String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  inventory         Inventory?
+  flashSaleProducts FlashSaleProduct[]
+  orderItems        OrderItem[]
+}
+
+model Inventory {
+  productId     Int      @id
+  totalStock    Int
+  reservedStock Int      @default(0) // Số lượng đang giữ chỗ (khi user bấm mua chưa thanh toán)
+  soldStock     Int      @default(0)
+  version       Int      @default(0) // Optimistic Locking
+  updatedAt     DateTime @updatedAt
+  
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+}
+
+model FlashSaleSession {
+  id        Int           @id @default(autoincrement())
+  startTime DateTime
+  endTime   DateTime
+  status    SessionStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  products  FlashSaleProduct[]
+
+  @@index([status, startTime, endTime]) // Tối ưu query tìm session đang Active
+}
+
+model FlashSaleProduct {
+  id        Int      @id @default(autoincrement())
+  sessionId Int
+  productId Int
+  salePrice Decimal  @db.Decimal(10, 2)
+  saleStock Int
+  userLimit Int      @default(1)
+
+  session   FlashSaleSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  product   Product          @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, productId]) // 1 Sản phẩm không thể xuất hiện 2 lần trong 1 session
+  @@index([sessionId])
+}
+
+model Order {
+  id          String      @id @default(uuid()) // Dùng UUID để không lộ số lượng đơn hàng
+  userId      Int
+  totalAmount Decimal     @db.Decimal(10, 2)
+  status      OrderStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user        User        @relation(fields: [userId], references: [id])
+  orderItems  OrderItem[]
+
+  @@index([userId]) // Tối ưu khi get lịch sử đơn hàng của User
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id              Int     @id @default(autoincrement())
+  orderId         String  // Đổi thành String theo id của Order
+  productId       Int
+  quantity        Int
+  priceAtPurchase Decimal @db.Decimal(10, 2)
+
+  order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product         Product @relation(fields: [productId], references: [id])
+}
