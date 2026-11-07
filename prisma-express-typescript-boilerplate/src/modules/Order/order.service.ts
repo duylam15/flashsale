@@ -137,59 +137,141 @@ export const orderService = {
   /**
   * 4. HÀM CACHE WARMING: Đưa tồn kho từ DB lên Redis (Hỗ trợ set số lượng tuỳ chỉnh)
   */
-  async setupFlashSaleCache(productIds: number[], customStock?: number) {
-    try {
-      console.log('🧹 Đang dọn dẹp dữ liệu test cũ trên Redis...');
-      const stockKeys = await redis.keys('flashsale:stock:*');
-      const userKeys = await redis.keys('flashsale:buyers:*');
-      const keysToDelete = [...stockKeys, ...userKeys];
-      if (keysToDelete.length > 0) {
-        await redis.del(keysToDelete);
-      }
 
-      const pipeline = redis.pipeline();
-      const FLASH_SALE_DURATION_SECONDS = 24 * 60 * 60; // 24 giờ
+  async setupFlashSaleCache(
+    productIds: number[],
+    customStock?: number
+  ) {
+    const startTime = Date.now();
+    const TTL = 24 * 60 * 60;
+
+    // 1. Kiểm tra dữ liệu đầu vào
+    if (
+      !Array.isArray(productIds) ||
+      productIds.length === 0 ||
+      productIds.some(
+        (id) => !Number.isSafeInteger(id) || id <= 0
+      )
+    ) {
+      throw new Error('productIds không hợp lệ');
+    }
+
+    if (
+      customStock !== undefined &&
+      customStock !== null &&
+      (!Number.isSafeInteger(customStock) || customStock < 0)
+    ) {
+      throw new Error('customStock không hợp lệ');
+    }
+
+    const ids = [...new Set(productIds)];
+
+    try {
+      console.log(
+        `[WARMUP] Bắt đầu khởi tạo ${ids.length} sản phẩm`
+      );
+
+      // 2. Xác định tồn kho cần nạp
+      const stocks: Array<{
+        productId: number;
+        stock: number;
+      }> = [];
 
       if (customStock !== undefined && customStock !== null) {
-        // 🚀 Nếu có truyền số lượng cụ thể từ Body (Phục vụ test nhanh 3000 items)
-        for (const productId of productIds) {
-          const stockKey = `flashsale:stock:${productId}`;
-          pipeline.set(stockKey, Number(customStock), 'EX', FLASH_SALE_DURATION_SECONDS);
+        // Chế độ test: sử dụng stock tùy chỉnh.
+        // Chỉ dùng trong môi trường kiểm thử.
+        for (const productId of ids) {
+          stocks.push({
+            productId,
+            stock: customStock,
+          });
         }
       } else {
-        // 🔄 Nếu không truyền thì lấy từ DB như mặc định
+        // Chế độ thông thường: lấy tồn kho từ PostgreSQL.
         const products = await prisma.product.findMany({
-          where: { id: { in: productIds } },
-          include: { inventory: true },
+          where: {
+            id: { in: ids },
+          },
+          include: {
+            inventory: true,
+          },
         });
 
-        if (products.length === 0) {
-          throw new Error('Không tìm thấy sản phẩm nào');
+        if (products.length !== ids.length) {
+          throw new Error('Không tìm thấy đủ sản phẩm');
         }
 
         for (const product of products) {
-          if (!product.inventory) continue;
-          const availableStock = product.inventory.totalStock - product.inventory.reservedStock - product.inventory.soldStock;
-          if (availableStock <= 0) continue;
+          if (!product.inventory) {
+            throw new Error(
+              `Sản phẩm ${product.id} chưa có Inventory`
+            );
+          }
 
-          const stockKey = `flashsale:stock:${product.id}`;
-          pipeline.set(stockKey, availableStock, 'EX', FLASH_SALE_DURATION_SECONDS);
+          const inventory = product.inventory;
+
+          const availableStock = Math.max(
+            0,
+            inventory.totalStock -
+            inventory.reservedStock -
+            inventory.soldStock
+          );
+
+          stocks.push({
+            productId: product.id,
+            stock: availableStock,
+          });
         }
       }
 
-      const results = await pipeline.exec();
-      const errors = results?.filter((result) => result[0] !== null);
-      if (errors && errors.length > 0) {
-        throw new Error('Cache warming thất bại một phần');
+      // 3. Chỉ reset key của các sản phẩm đang warmup.
+      // Pipeline giúp giảm số lần trao đổi mạng với Redis.
+      const pipeline = redis.pipeline();
+
+      for (const item of stocks) {
+        const stockKey = `flashsale:stock:${item.productId}`;
+        const buyersKey = `flashsale:buyers:${item.productId}`;
+
+        pipeline.del(buyersKey);
+
+        pipeline.set(
+          stockKey,
+          item.stock,
+          'EX',
+          TTL
+        );
       }
 
-      console.log('✅ Thiết lập Redis Cache thành công!');
-      return { success: true, message: 'Đã đẩy tồn kho lên Redis thành công' };
+      const results = await pipeline.exec();
+
+      if (
+        !results ||
+        results.length !== ids.length * 2 ||
+        results.some(([error]) => error !== null)
+      ) {
+        throw new Error('Cache warming thất bại');
+      }
+
+      const durationMs = Date.now() - startTime;
+
+      console.log(
+        `[WARMUP] Thành công | ` +
+        `Products=${ids.length} | ` +
+        `Duration=${durationMs}ms`
+      );
+
+      return {
+        success: true,
+        message: 'Đã khởi tạo Redis Cache thành công',
+        products: stocks,
+        durationMs,
+      };
     } catch (error) {
-      console.error('Lỗi khi setup Redis cache:', error);
+      console.error('[WARMUP ERROR]', error);
       throw error;
     }
   },
+
 
   /**
    * 4. TRUY VẤN ĐƠN HÀNG

@@ -1,0 +1,55 @@
+name: Deploy Flash Sale to VPS
+
+on:
+  push:
+    branches: [ "main", "master" ] # Mỗi khi bạn push code lên nhánh main hoặc master
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 1. Đăng nhập vào Docker Hub
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    # 2. Build và Push Backend Image
+    - name: Build and push Backend Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./backend/Dockerfile # Điều chỉnh đường dẫn Dockerfile backend của bạn nếu khác
+        push: true
+        tags: ${{ secrets.DOCKERHUB_USERNAME }}/flashsale-backend:latest
+
+    # 3. Build và Push Frontend Image (truyền biến môi trường API)
+    - name: Build and push Frontend Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./frontend/Dockerfile # Điều chỉnh đường dẫn Dockerfile frontend của bạn nếu khác
+        push: true
+        build-args: |
+          NEXT_PUBLIC_API_URL=https://api.netto.id.vn
+        tags: ${{ secrets.DOCKERHUB_USERNAME }}/flashsale-frontend:latest
+
+    # 4. Tự động SSH vào VPS để cập nhật và chạy lại hệ thống
+    - name: Deploy to VPS via SSH
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.VPS_HOST }}
+        username: ${{ secrets.VPS_USER }}
+        key: ${{ secrets.VPS_SSH_KEY }}
+        port: ${{ secrets.VPS_PORT }}
+        script: |
+          cd ${{ secrets.VPS_APP_DIR }}
+          git pull origin main || true
+          docker-compose pull
+          docker-compose up -d --remove-orphans
+          echo "Deployment completed successfully!"
