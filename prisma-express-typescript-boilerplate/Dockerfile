@@ -43,7 +43,7 @@ RUN apt-get update \
 
 COPY package*.json ./
 
-RUN HUSKY=0 npm ci --omit=dev --legacy-peer-deps
+RUN npm ci --omit=dev --legacy-peer-deps --ignore-scripts
 
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/prisma ./prisma
