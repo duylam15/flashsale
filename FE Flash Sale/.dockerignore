@@ -1,6 +1,7 @@
 node_modules
 .next
 .git
-.vscode
-.env*
-Dockerfile
+.github
+.env
+coverage
+npm-debug.log

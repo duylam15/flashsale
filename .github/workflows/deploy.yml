@@ -5,6 +5,12 @@ on:
   push:
     branches: [main, master]
 
+  workflow_dispatch:
+
+concurrency:
+  group: flashsale-deployment
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -13,30 +19,44 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      # Build Backend
       - name: Build and push Backend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./prisma-express-typescript-boilerplate
           file: ./prisma-express-typescript-boilerplate/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/flashsale-backend:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/flashsale-backend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/flashsale-backend:${{ github.sha }}
+          cache-from: type=gha,scope=flashsale-backend
+          cache-to: type=gha,mode=max,scope=flashsale-backend
 
+      # Build Frontend
       - name: Build and push Frontend
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: ./FE Flash Sale
           file: ./FE Flash Sale/Dockerfile
           push: true
           build-args: |
             NEXT_PUBLIC_API_URL=https://api.netto.id.vn
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/flashsale-frontend:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/flashsale-frontend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/flashsale-frontend:${{ github.sha }}
+          cache-from: type=gha,scope=flashsale-frontend
+          cache-to: type=gha,mode=max,scope=flashsale-frontend
 
+      # Deploy VPS
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -48,19 +68,25 @@ jobs:
           script: |
             set -e
 
-            cd ${{ secrets.VPS_APP_DIR }}
+            export DOCKER_CONFIG="$HOME/.docker-nohelper"
 
-            echo "=== Pulling latest Docker images ==="
-            docker-compose pull
+            cd "${{ secrets.VPS_APP_DIR }}"
 
-            echo "=== Recreating containers ==="
-            docker-compose up -d --remove-orphans
+            echo "=== Pulling latest images ==="
+            docker-compose pull backend frontend
+
+            echo "=== Updating containers ==="
+            docker-compose up -d --no-deps backend frontend
 
             echo "=== Checking deployment ==="
             docker-compose ps
 
             echo "=== Backend image ==="
             docker inspect flashsale_backend \
+              --format 'Image={{.Image}} Created={{.Created}}'
+
+            echo "=== Frontend image ==="
+            docker inspect flashsale_frontend \
               --format 'Image={{.Image}} Created={{.Created}}'
 
             echo "=== Deployment completed ==="

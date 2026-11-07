@@ -22,7 +22,11 @@ const accepted = new Counter('flashsale_accepted');
 const rejected = new Counter('flashsale_rejected');
 const errors = new Counter('flashsale_errors');
 
+
 export const options = {
+  setupTimeout: '5m',
+  teardownTimeout: '2m',
+
   scenarios: {
     flash_sale_spike: {
       executor: 'per-vu-iterations',

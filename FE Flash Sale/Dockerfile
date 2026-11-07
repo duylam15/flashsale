@@ -1,34 +1,43 @@
-# Step 1: Install dependencies
-FROM node:20-alpine AS deps
-WORKDIR /app
-COPY package*.json ./
-RUN npm install --legacy-peer-deps
 
-# Step 2: Build the app
-FROM node:20-alpine AS builder
+# Stage 1: Dependencies
+FROM node:20-alpine AS deps
+
 WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm ci
+
+
+# Stage 2: Build
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Khai báo biến môi trường lúc Build để Next.js gọi API về VPS
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
+ENV NEXT_TELEMETRY_DISABLED=1
+
 RUN npm run build
 
-# Step 3: Production server
+
+# Stage 3: Production
 FROM node:20-alpine AS runner
+
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV NEXT_TELEMETRY_DISABLED=1
 
-# Copy các thư mục cần thiết từ builder sang runner
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start"]
+CMD ["node", "server.js"]
