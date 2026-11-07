@@ -7,13 +7,13 @@ import { Request, Response } from 'express';
 export const warmUpCacheAPI = async (req: Request, res: Response) => {
   try {
     const { productIds, stock } = req.body; // 👈 Cho phép truyền thêm stock từ request body
-    
+
     // Truyền stock vào service (nếu có)
     await orderService.setupFlashSaleCache(productIds, stock);
-    
-    return res.status(200).json({ 
+
+    return res.status(200).json({
       status: 'success',
-      message: `Đã bơm tồn kho ${stock ? `(SL: ${stock})` : 'từ DB'} lên Redis thành công!` 
+      message: `Đã bơm tồn kho ${stock ? `(SL: ${stock})` : 'từ DB'} lên Redis thành công!`
     });
   } catch (error: any) {
     return res.status(500).json({ message: 'Lỗi Cache Warming', error: error.message });
@@ -55,7 +55,7 @@ const getOrders = catchAsync(async (req: any, res: Response) => {
 });
 
 const getOrder = catchAsync(async (req: any, res: Response) => {
-  const orderId = parseInt(req.params.orderId, 10);
+  const orderId = req.params.orderId;
   const order = await orderService.getOrderById(orderId);
   if (req.user.role === 'USER' && order.userId !== req.user.id) {
     return res.status(httpStatus.FORBIDDEN).send({ message: 'Forbidden' });
@@ -64,14 +64,17 @@ const getOrder = catchAsync(async (req: any, res: Response) => {
 });
 
 const updateOrderStatus = catchAsync(async (req: Request, res: Response) => {
-  const orderId = parseInt(req.params.orderId, 10);
+  const orderId: string = req.params.orderId;
   const { status } = req.body;
+
   let order;
+
   if (status === 'PAID') {
     order = await orderService.markOrderAsPaid(orderId);
   } else if (status === 'CANCELLED') {
     order = await orderService.cancelOrder(orderId);
   }
+
   res.send({ status: 'success', data: order });
 });
 

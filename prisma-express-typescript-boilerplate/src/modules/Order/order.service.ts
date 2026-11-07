@@ -304,7 +304,7 @@ export const orderService = {
   /**
    * 5. LẤY CHI TIẾT ĐƠN HÀNG THEO ID
    */
-  async getOrderById(id: number) {
+  async getOrderById(id: string) {
     const order = await prisma.order.findUnique({
       where: { id },
       include: { orderItems: { include: { product: true } }, user: true },
@@ -316,11 +316,13 @@ export const orderService = {
   /**
    * 6. Xử lý thanh toán thành công
    */
-  async markOrderAsPaid(orderId: number) {
+  async markOrderAsPaid(orderId: string) {
     return prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
         where: { id: orderId },
-        include: { orderItems: true },
+        include: {
+          orderItems: true,
+        },
       });
       if (!order || order.status !== 'PENDING') throw new ApiError(httpStatus.BAD_REQUEST, 'Invalid order status');
 
@@ -345,7 +347,7 @@ export const orderService = {
   /**
    * 7. Hủy đơn hàng
    */
-  async cancelOrder(orderId: number) {
+  async cancelOrder(orderId: string) {
     return prisma.$transaction(async (tx) => {
       const order = await tx.order.findUnique({
         where: { id: orderId },
