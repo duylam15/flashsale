@@ -23,17 +23,17 @@ jobs:
     - name: Build and push Backend Docker image
       uses: docker/build-push-action@v5
       with:
-        context: .
-        file: ./backend/Dockerfile # Điều chỉnh đường dẫn Dockerfile backend của bạn nếu khác
+        context: ./backend  # Hoặc sửa lại đường dẫn trỏ đúng tới folder chứa code backend
+        file: ./backend/Dockerfile
         push: true
         tags: ${{ secrets.DOCKERHUB_USERNAME }}/flashsale-backend:latest
 
-    # 3. Build và Push Frontend Image (truyền biến môi trường API)
+    # 3. Build và Push Frontend Image
     - name: Build and push Frontend Docker image
       uses: docker/build-push-action@v5
       with:
-        context: .
-        file: ./frontend/Dockerfile # Điều chỉnh đường dẫn Dockerfile frontend của bạn nếu khác
+        context: ./frontend # Hoặc sửa lại đường dẫn trỏ đúng tới folder chứa code frontend
+        file: ./frontend/Dockerfile
         push: true
         build-args: |
           NEXT_PUBLIC_API_URL=https://api.netto.id.vn
