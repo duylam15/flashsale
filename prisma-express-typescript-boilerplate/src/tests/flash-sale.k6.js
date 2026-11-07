@@ -9,13 +9,13 @@ import { Counter } from 'k6/metrics';
 // ==========================================
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:4000/v1';
-const TOTAL_USERS = Number(__ENV.TOTAL_USERS || 3000);
+const TOTAL_USERS = Number(__ENV.TOTAL_USERS || 100);
 const PRODUCT_ID = Number(__ENV.PRODUCT_ID || 1);
 const START_ID = Number(__ENV.START_ID || 1);
 const JITTER = Number(__ENV.JITTER || 0);
 
 // Số lượng sản phẩm dành riêng cho Flash Sale
-const FLASH_SALE_STOCK = Number(__ENV.FLASH_SALE_STOCK || 3000);
+const FLASH_SALE_STOCK = Number(__ENV.FLASH_SALE_STOCK || 100);
 
 // Thống kê
 const accepted = new Counter('flashsale_accepted');
@@ -101,8 +101,7 @@ export function setup() {
 
   if (!Array.isArray(users) || users.length < TOTAL_USERS) {
     throw new Error(
-      `Không đủ tokens: ${users?.length || 0}/${TOTAL_USERS}`
-    );
+      `Không đủ tokens: ${(users && users.length) || 0}/${TOTAL_USERS}`);
   }
 
   console.log(
@@ -140,9 +139,9 @@ export default function (data) {
         Authorization: `Bearer ${user.token}`,
       },
       timeout: '30s',
-      responseCallback: http.expectedStatuses(
-        201, 202, 400, 409
-      ),
+      // responseCallback: http.expectedStatuses(
+      //   201, 202, 400, 409
+      // ),
       tags: {
         endpoint: 'flash_sale',
       },

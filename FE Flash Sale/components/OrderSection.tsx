@@ -95,7 +95,7 @@ export default function ClientFlashSaleTest({ productId }: ClientTestProps) {
       <div>
         <h3 className="text-xl font-bold text-gray-900">⚡ Server-Side K6 Load Test Dashboard</h3>
         <p className="text-sm text-gray-500 mt-1">
-          Nhập số lượng VUs trực tiếp trên web, Backend sẽ tự động gọi file <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">flash-sale.k6.js</code> để chạy tải và trả kết quả real-time.
+          Nhập số lượng VUs trực tiếp trên ssweb, Backend sẽ tự động gọi file <code className="bg-gray-100 px-1 py-0.5 rounded text-xs">flash-sale.k6.js</code> để chạy tải và trả kết quả real-time.
         </p>
       </div>
 

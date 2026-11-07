@@ -331,7 +331,7 @@ export default function Page() {
       <div className="mx-auto max-w-7xl space-y-6">
         <div className="grid gap-6 xl:grid-cols-[350px_minmax(0,1fr)]">
           <Section
-            title="🚀 Điều khiển K6"
+            title="Điều khiển K6"
             description="Chọn số người dùng ảo và số lượng hàng để kiểm thử."
           >
             <div className="space-y-4">
