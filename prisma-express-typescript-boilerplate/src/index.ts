@@ -17,8 +17,8 @@ void startFlashSaleWorker().catch((error) => {
 async function bootstrap() {
   await prisma.$connect();
   logger.info('Connected to SQL Database');
-  server = app.listen(config.port, () => {
-    logger.info(`Listening to port ${config.port}`);
+  server = app.listen(config.port, '0.0.0.0', 4096, () => {
+    logger.info(`Listening to port ${config.port} with backlog 4096`);
   });
 }
 
