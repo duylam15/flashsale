@@ -407,7 +407,7 @@ export default function Page() {
           </Section>
 
           <Section
-            title="📊 Kết quả kiểm thử K6"
+            title="📊 Kết quả kiểm thử K6xx"
             description="Dữ liệu lấy từ GET /v1/load-tests/:testId."
           >
             <div className="flex flex-wrap items-center justify-between gap-3 text-sm">

@@ -3,7 +3,6 @@ import catchAsync from '../../utils/catchAsync';
 import authService from './auth.service';
 import tokenService from './token.service';
 import config from '../../config/config';
-import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient(); // Khởi tạo Prisma Client
@@ -47,42 +46,36 @@ const generateTokens = catchAsync(async (req, res) => {
   const count = Number(req.body.count) || 100;
   const startId = Number(req.body.startId) || 1;
 
-  // 1. Chuẩn bị password hash chung cho user mock
-  const defaultPassword = await bcrypt.hash('password123', 10);
-
-  // 2. Chuẩn bị danh sách user và token
-  const usersToInsert = [];
-  const result = [];
-
-  for (let i = 0; i < count; i++) {
-    const currentUserId = startId + i;
-
-    usersToInsert.push({
-      id: currentUserId,
-      email: `mock_user_${currentUserId}@example.com`,
-      name: `Test User ${currentUserId}`,
-      password: defaultPassword,
-    });
-
-    const tokens = tokenService.generateAuthTokens(currentUserId);
-    result.push({
-      userId: currentUserId,
-      token: tokens.access.token,
-      expires: tokens.access.expires,
+  // Giới hạn để tránh tạo quá nhiều token ngoài ý muốn
+  if (
+    !Number.isInteger(count) ||
+    count < 1 ||
+    count > 10000 ||
+    !Number.isInteger(startId) ||
+    startId < 1
+  ) {
+    return res.status(httpStatus.BAD_REQUEST).send({
+      status: 'error',
+      message: 'count phải từ 1 đến 3000 và startId phải >= 1',
     });
   }
 
-  // 3. Chèn vào database, bỏ qua nếu user đã tồn tại (skipDuplicates)
-  await prisma.user.createMany({
-    data: usersToInsert,
-    skipDuplicates: true,
+  const users = Array.from({ length: count }, (_, i) => {
+    const userId = startId + i;
+    const tokens = tokenService.generateAuthTokens(userId);
+
+    return {
+      userId,
+      token: tokens.access.token,
+      expires: tokens.access.expires,
+    };
   });
 
-  res.status(httpStatus.OK).send({
+  return res.status(httpStatus.OK).send({
     status: 'success',
     data: {
-      total: result.length,
-      users: result,
+      total: users.length,
+      users,
     },
   });
 });
