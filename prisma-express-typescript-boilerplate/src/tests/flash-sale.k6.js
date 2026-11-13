@@ -9,13 +9,13 @@ import { Counter } from 'k6/metrics';
 // ==========================================
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:4000/v1';
-const TOTAL_USERS = Number(__ENV.TOTAL_USERS || 5000);
+const TOTAL_USERS = Number(__ENV.TOTAL_USERS || 3000);
 const PRODUCT_ID = Number(__ENV.PRODUCT_ID || 1);
 const START_ID = Number(__ENV.START_ID || 1);
 const JITTER = Number(__ENV.JITTER || 0);
 
 // Số lượng sản phẩm dành riêng cho Flash Sale
-const FLASH_SALE_STOCK = Number(__ENV.FLASH_SALE_STOCK || 5000);
+const FLASH_SALE_STOCK = Number(__ENV.FLASH_SALE_STOCK || 2000);
 
 // Thống kê
 const accepted = new Counter('flashsale_accepted');
@@ -176,4 +176,75 @@ export default function (data) {
       r.status === 400 ||
       r.status === 409,
   });
+}
+
+export function handleSummary(data) {
+  const metrics = data.metrics;
+
+  const totalReqs = metrics.http_reqs?.values?.count || 0;
+  const rps = metrics.http_reqs?.values?.rate || 0;
+  const p95 = metrics.http_req_duration?.values['p(95)'] || 0;
+  const p99 = metrics.http_req_duration?.values['p(99)'] || null;
+  const durationSeconds = (data.state?.testRunDurationMs || 0) / 1000;
+
+  // Lấy số liệu từ 3 custom Counter bạn đã khai báo
+  const acceptedCount = metrics.flashsale_accepted?.values?.count || 0;
+  const rejectedCount = metrics.flashsale_rejected?.values?.count || 0;
+  const errorCount = metrics.flashsale_errors?.values?.count || 0;
+
+  // 201/202 (mua được) và 400/409 (hết hàng đúng nghiệp vụ) đều tính là request xử lý hợp lệ
+  const validHandledCount = acceptedCount + rejectedCount;
+
+  const payload = {
+    name: __ENV.TEST_NAME || `FlashSale ${TOTAL_USERS} VUs - Stock ${FLASH_SALE_STOCK}`,
+    description: __ENV.TEST_DESC || `Chạy từ Windows Local bắn lên ${BASE_URL}`,
+    tool: 'K6',
+    status: 'COMPLETED',
+    sessionId: __ENV.SESSION_ID ? Number(__ENV.SESSION_ID) : null,
+    targetEndpoint: 'POST /orders/flash-sale',
+    vus: TOTAL_USERS,
+    durationSeconds: Math.round(durationSeconds), // Đổi từ Number(durationSeconds.toFixed(2)) sang Math.round()
+    totalRequests: totalReqs, successCount: validHandledCount,
+    failedCount: errorCount,
+    rps: Number(rps.toFixed(2)),
+    p95LatencyMs: Number(p95.toFixed(2)),
+    p99LatencyMs: p99 ? Number(p99.toFixed(2)) : null,
+    rawResult: {
+      customCounters: {
+        flashsale_accepted: acceptedCount,
+        flashsale_rejected: rejectedCount,
+        flashsale_errors: errorCount,
+      },
+      metrics: data.metrics,
+    },
+    environmentMeta: {
+      baseUrl: BASE_URL,
+      productId: PRODUCT_ID,
+      flashSaleStock: FLASH_SALE_STOCK,
+      jitter: JITTER,
+      clientOS: 'Windows',
+    },
+  };
+
+  console.log(`\n[K6 SUMMARY] Đang đẩy kết quả test lên ${BASE_URL}/load-test-results ...`);
+
+  const res = http.post(
+    `${BASE_URL}/load-test-results`,
+    JSON.stringify(payload),
+    {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: '30s',
+    }
+  );
+
+  if (res.status === 201) {
+    console.log(`[K6 SUMMARY] Đã lưu kết quả vào DB thành công! ID: ${res.json('data.id')}`);
+  } else {
+    console.error(`[K6 SUMMARY] Lưu DB thất bại (${res.status}): ${res.body}`);
+  }
+
+  // Vẫn in report mặc định ra màn hình console của Windows
+  return {
+    stdout: JSON.stringify(payload.rawResult.customCounters, null, 2) + '\n',
+  };
 }

@@ -10,7 +10,7 @@ import inventoryRoute from '../modules/Inventory/inventory.route';
 import flashSaleProductRoute from '../modules/FlashSaleProduct/flashSaleProduct.route';
 // import flashSaleSessionRoute from '../modules/FlashSaleSession/flashSaleSession.route';
 import loadTestRoute from '../modules/LoadTest/loadTest.route';
-
+import loadTestResultRoute from '../modules/LoadTestResult/loadTestResult.route';
 const router = express.Router();
 
 const defaultRoutes = [
@@ -46,6 +46,10 @@ const defaultRoutes = [
   //   path: '/flash-sale-sessions',
   //   route: flashSaleSessionRoute
   // },
+  {
+  path: '/load-test-results',
+  route: loadTestResultRoute,
+},
   {
     path: '/load-tests',
     route: loadTestRoute

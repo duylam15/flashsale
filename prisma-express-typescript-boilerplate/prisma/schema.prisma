@@ -95,7 +95,7 @@ model FlashSaleSession {
   updatedAt DateTime      @updatedAt
 
   products  FlashSaleProduct[]
-
+loadTestResults LoadTestResult[]   // <--- Đặt đúng ở model FlashSaleSession này
   @@index([status, startTime, endTime]) // Tối ưu query tìm session đang Active
 }
 
@@ -138,4 +138,55 @@ model OrderItem {
 
   order           Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product         Product @relation(fields: [productId], references: [id])
+}
+
+
+// === PHẦN BENCHMARK / LOAD TEST ===
+enum TestTool {
+  K6
+  JMETER
+  ARTILLERY
+  AUTOCANNON
+  CUSTOM
+}
+
+enum TestStatus {
+  COMPLETED
+  FAILED
+  ABORTED
+}
+
+model LoadTestResult {
+  id              String     @id @default(uuid())
+  name            String     // VD: "Flash Sale 1000 VUs - Redis Lua Script"
+  description     String?    @db.Text // Ghi chú cấu hình VPS, chiến lược lock (Optimistic vs Redis)...
+  tool            TestTool   @default(K6)
+  status          TestStatus @default(COMPLETED)
+  
+  // Liên kết tùy chọn tới session flash sale được mang ra test (nếu cần đối chiếu tồn kho thực tế)
+  sessionId       Int?
+  session         FlashSaleSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+
+  // Các chỉ số tổng quan (lưu dạng cột riêng để dễ sort, filter, vẽ chart so sánh)
+  targetEndpoint  String     // VD: "POST /api/v1/flash-sale/buy"
+  vus             Int        // Virtual Users (Số user đồng thời tối đa)
+  durationSeconds Int        // Tổng thời gian chạy test (giây)
+  totalRequests   Int        // Tổng số request đã bắn
+  successCount    Int        // Số request thành công (200/201)
+  failedCount     Int        // Số request lỗi (4xx/5xx/timeout)
+  rps             Float      // Requests Per Second trung bình
+  p95LatencyMs    Float      // Độ trễ P95 (ms) - chỉ số vàng khi test chịu tải
+  p99LatencyMs    Float?     // Độ trễ P99 (ms)
+
+  // Field JSON chứa toàn bộ kết quả chi tiết xuất ra từ tool test (k6 summary.json, JMeter report...)
+  rawResult       Json       
+  
+  // Metadata môi trường test (tùy chọn: thông số VPS, cấu hình máy Windows local...)
+  environmentMeta Json?      
+
+  executedAt      DateTime   @default(now()) // Thời điểm chạy test trên máy Windows
+  createdAt       DateTime   @default(now())
+
+  @@index([executedAt])
+  @@index([sessionId])
 }
