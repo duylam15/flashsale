@@ -6,15 +6,14 @@ import { Counter } from 'k6/metrics';
 // ==========================================
 // CẤU HÌNH CHO VPS
 // ==========================================
-
 const BASE_URL = __ENV.BASE_URL || 'http://157.66.219.33:4000/v1';
 const TOTAL_USERS = Number(__ENV.TOTAL_USERS || 1000);
 const PRODUCT_ID = Number(__ENV.PRODUCT_ID || 1);
 const START_ID = Number(__ENV.START_ID || 1);
-const JITTER = Number(__ENV.JITTER || 0);
+const JITTER = Number(__ENV.JITTER || 3);
 
 // Số lượng sản phẩm dành riêng cho Flash Sale
-const FLASH_SALE_STOCK = Number(__ENV.FLASH_SALE_STOCK || 500);
+const FLASH_SALE_STOCK = Number(__ENV.FLASH_SALE_STOCK || 1000);
 
 // Thống kê custom
 const accepted = new Counter('flashsale_accepted');
@@ -24,7 +23,6 @@ const errors = new Counter('flashsale_errors');
 export const options = {
   setupTimeout: '5m',
   teardownTimeout: '2m',
-
   scenarios: {
     flash_sale_spike: {
       executor: 'per-vu-iterations',
@@ -42,7 +40,6 @@ export const options = {
 // ==========================================
 // 1. SETUP - WARMUP CACHE + TẠO TOKEN
 // ==========================================
-
 export function setup() {
   // BƯỚC 1: WARMUP CACHE
   console.log(
@@ -97,7 +94,6 @@ export function setup() {
   }
 
   const users = response.json('data.users');
-
   if (!Array.isArray(users) || users.length < TOTAL_USERS) {
     throw new Error(
       `Không đủ tokens: ${(users && users.length) || 0}/${TOTAL_USERS}`
@@ -105,16 +101,15 @@ export function setup() {
   }
 
   console.log(
-    `[K6 SETUP] Đã nhận thành công ${users.length} tokens. Bắt đầu bắn 100 reqs vào VPS...`
+    `[K6 SETUP] Đã nhận thành công ${users.length} tokens. Bắt đầu bắn ${TOTAL_USERS} reqs vào VPS...`
   );
 
   return { users };
 }
 
 // ==========================================
-// 2. CHẠY LOAD TEST (100 REQUESTS)
+// 2. CHẠY LOAD TEST
 // ==========================================
-
 export default function (data) {
   if (JITTER > 0) {
     sleep(Math.random() * JITTER);
@@ -122,7 +117,6 @@ export default function (data) {
 
   // __VU bắt đầu từ 1, index mảng bắt đầu từ 0
   const user = data.users[__VU - 1];
-
   if (!user || !user.token) {
     errors.add(1);
     return;
@@ -153,7 +147,6 @@ export default function (data) {
     rejected.add(1);
   } else {
     errors.add(1);
-
     if (__VU <= 10) {
       console.log(
         `[WARNING] VU ${__VU} | Status: ${response.status} | Error: ${response.error}`
@@ -168,4 +161,88 @@ export default function (data) {
       r.status === 400 ||
       r.status === 409,
   });
+}
+
+// ==========================================
+// 3. SUMMARY - TỰ ĐỘNG LƯU KẾT QUẢ VÀO DB
+// ==========================================
+export function handleSummary(data) {
+  const metrics = data.metrics;
+  const totalReqs = metrics.http_reqs?.values?.count || 0;
+  const rps = metrics.http_reqs?.values?.rate || 0;
+  const p95 = metrics.http_req_duration?.values['p(95)'] || 0;
+  const p99 = metrics.http_req_duration?.values['p(99)'] || null;
+  const durationSeconds = (data.state?.testRunDurationMs || 0) / 1000;
+
+  // Lấy số liệu từ 3 custom Counter
+  const acceptedCount = metrics.flashsale_accepted?.values?.count || 0;
+  const rejectedCount = metrics.flashsale_rejected?.values?.count || 0;
+  const errorCount = metrics.flashsale_errors?.values?.count || 0;
+
+  // 201/202 (mua được) và 400/409 (hết hàng đúng nghiệp vụ) đều tính là request xử lý hợp lệ
+  const validHandledCount = acceptedCount + rejectedCount;
+
+  const payload = {
+    name:
+      __ENV.TEST_NAME ||
+      `VPS FlashSale ${TOTAL_USERS} VUs - Stock ${FLASH_SALE_STOCK}`,
+    description:
+      __ENV.TEST_DESC || `Chạy từ Windows Local bắn lên VPS (${BASE_URL})`,
+    tool: 'K6',
+    status: 'COMPLETED',
+    sessionId: __ENV.SESSION_ID ? Number(__ENV.SESSION_ID) : null,
+    targetEndpoint: 'POST /orders/flash-sale',
+    vus: TOTAL_USERS,
+    durationSeconds: Math.round(durationSeconds),
+    totalRequests: totalReqs,
+    successCount: validHandledCount,
+    failedCount: errorCount,
+    rps: Number(rps.toFixed(2)),
+    p95LatencyMs: Number(p95.toFixed(2)),
+    p99LatencyMs: p99 ? Number(p99.toFixed(2)) : null,
+    rawResult: {
+      customCounters: {
+        flashsale_accepted: acceptedCount,
+        flashsale_rejected: rejectedCount,
+        flashsale_errors: errorCount,
+      },
+      metrics: data.metrics,
+    },
+    environmentMeta: {
+      baseUrl: BASE_URL,
+      productId: PRODUCT_ID,
+      flashSaleStock: FLASH_SALE_STOCK,
+      jitter: JITTER,
+      clientOS: 'Windows',
+    },
+  };
+
+  console.log(
+    `\n[K6 SUMMARY] Đang đẩy kết quả test lên ${BASE_URL}/load-test-results ...`
+  );
+
+  const res = http.post(
+    `${BASE_URL}/load-test-results`,
+    JSON.stringify(payload),
+    {
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      timeout: '30s',
+    }
+  );
+
+  if (res.status === 201) {
+    console.log(
+      `[K6 SUMMARY] Đã lưu kết quả vào DB thành công! ID: ${res.json('data.id')}`
+    );
+  } else {
+    console.error(
+      `[K6 SUMMARY] Lưu DB thất bại (${res.status}): ${res.body}`
+    );
+  }
+
+  return {
+    stdout: JSON.stringify(payload.rawResult.customCounters, null, 2) + '\n',
+  };
 }

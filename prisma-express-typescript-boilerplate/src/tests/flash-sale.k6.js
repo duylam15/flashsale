@@ -9,13 +9,13 @@ import { Counter } from 'k6/metrics';
 // ==========================================
 
 const BASE_URL = __ENV.BASE_URL || 'http://localhost:4000/v1';
-const TOTAL_USERS = Number(__ENV.TOTAL_USERS || 3000);
+const TOTAL_USERS = Number(__ENV.TOTAL_USERS || 1000);
 const PRODUCT_ID = Number(__ENV.PRODUCT_ID || 1);
 const START_ID = Number(__ENV.START_ID || 1);
-const JITTER = Number(__ENV.JITTER || 0);
+const JITTER = Number(__ENV.JITTER || 2);
 
 // Số lượng sản phẩm dành riêng cho Flash Sale
-const FLASH_SALE_STOCK = Number(__ENV.FLASH_SALE_STOCK || 2000);
+const FLASH_SALE_STOCK = Number(__ENV.FLASH_SALE_STOCK || 1000);
 
 // Thống kê
 const accepted = new Counter('flashsale_accepted');
