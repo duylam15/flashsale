@@ -13,9 +13,9 @@ import {
 } from 'lucide-react';
 import ArchitectureTab from '@/components/showcase/ArchitectureTab';
 import TestResultsTab from '@/components/showcase/TestResultsTab';
-import K6PlaygroundTab from '@/components/showcase/K6PlaygroundTab';
+import EngineeringNotesTab from '@/components/showcase/EngineeringNotesTab';
 
-type TabKey = 'architecture' | 'results' | 'playground';
+type TabKey = 'architecture' | 'results' | 'engineeringnotes';
 
 const TABS: { id: TabKey; label: string; icon: React.ReactNode; badge?: string }[] = [
   {
@@ -30,8 +30,8 @@ const TABS: { id: TabKey; label: string; icon: React.ReactNode; badge?: string }
     badge: '1,000+ VUs',
   },
   {
-    id: 'playground',
-    label: 'K6 Script & Hướng dẫn',
+    id: 'engineeringnotes',
+    label: 'Engineering Notes',
     icon: <Terminal className="w-4 h-4" />,
   },
 ];
@@ -44,7 +44,7 @@ function ShowcaseContent() {
   // Đọc tab hiện tại từ URL (?tab=...), mặc định là 'architecture'
   const rawTab = searchParams.get('tab') as TabKey | null;
   const activeTab: TabKey =
-    rawTab && ['architecture', 'results', 'playground'].includes(rawTab)
+    rawTab && ['architecture', 'results', 'engineeringnotes'].includes(rawTab)
       ? rawTab
       : 'architecture';
 
@@ -77,7 +77,7 @@ function ShowcaseContent() {
                   </span>
                 </div>
                 <p className="text-xs text-slate-500">
-                  Node.js • Redis Atomic Lua • BullMQ • PostgreSQL
+                  Node.js • Redis Atomic Lua • Redis Streams • PostgreSQL
                 </p>
               </div>
             </div>
@@ -112,11 +112,10 @@ function ShowcaseContent() {
                 <button
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
-                  className={`group inline-flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap cursor-pointer ${
-                    isActive
-                      ? 'border-blue-600 text-blue-600 bg-blue-50/40'
-                      : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
-                  }`}
+                  className={`group inline-flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap cursor-pointer ${isActive
+                    ? 'border-blue-600 text-blue-600 bg-blue-50/40'
+                    : 'border-transparent text-slate-600 hover:text-slate-900 hover:border-slate-300'
+                    }`}
                 >
                   <span
                     className={
@@ -130,11 +129,10 @@ function ShowcaseContent() {
                   <span>{tab.label}</span>
                   {tab.badge && (
                     <span
-                      className={`px-2 py-0.5 text-[11px] rounded-full font-semibold ${
-                        isActive
-                          ? 'bg-blue-100 text-blue-700'
-                          : 'bg-slate-100 text-slate-600'
-                      }`}
+                      className={`px-2 py-0.5 text-[11px] rounded-full font-semibold ${isActive
+                        ? 'bg-blue-100 text-blue-700'
+                        : 'bg-slate-100 text-slate-600'
+                        }`}
                     >
                       {tab.badge}
                     </span>
@@ -150,7 +148,7 @@ function ShowcaseContent() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'architecture' && <ArchitectureTab />}
         {activeTab === 'results' && <TestResultsTab />}
-        {activeTab === 'playground' && <K6PlaygroundTab />}
+        {activeTab === 'engineeringnotes' && <EngineeringNotesTab />}
       </main>
 
       {/* Footer */}
