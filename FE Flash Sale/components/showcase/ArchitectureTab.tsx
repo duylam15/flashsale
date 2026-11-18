@@ -172,18 +172,17 @@ export default function ArchitectureTab() {
         </div>
 
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-          <div className="flex items-center justify-between text-slate-500 text-xs font-medium uppercase tracking-wider">
-            <span>Tối ưu tầng mạng</span>
-            <Database className="w-4 h-4 text-indigo-600" />
+          <div className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+            Chịu tải đồng thời
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-2xl font-bold text-slate-900">65,535</span>
-            <span className="text-xs font-medium text-slate-600">
-              SYN Backlog
+            <span className="text-2xl font-bold text-slate-900">1,000+ VUs</span>
+            <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+              0% Lỗi
             </span>
           </div>
-          <p className="mt-1 text-xs text-slate-500">
-            Kernel tuning & Host networking
+          <p className="mt-1.5 text-xs text-slate-500">
+            Kiểm thử k6 trên VPS
           </p>
         </div>
       </div>

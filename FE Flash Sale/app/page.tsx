@@ -76,9 +76,6 @@ function ShowcaseContent() {
                     Live on VPS
                   </span>
                 </div>
-                <p className="text-xs text-slate-500">
-                  Node.js • Redis Atomic Lua • Redis Streams • PostgreSQL
-                </p>
               </div>
             </div>
 
@@ -88,19 +85,6 @@ function ShowcaseContent() {
                 <Server className="w-3.5 h-3.5 text-slate-500" />
                 <span>VPS: 1 vCPU / 2GB RAM</span>
               </div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-50 text-blue-700 border border-blue-200 font-medium">
-                <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                <span>0% Overselling</span>
-              </div>
-              <a
-                href="http://157.66.219.33:4000/v1/docs"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-medium transition-colors"
-              >
-                <span>API Docs</span>
-                <ExternalLink className="w-3 h-3 text-slate-400" />
-              </a>
             </div>
           </div>
 

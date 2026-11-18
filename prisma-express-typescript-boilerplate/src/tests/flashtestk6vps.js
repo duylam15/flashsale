@@ -13,7 +13,7 @@ const START_ID = Number(__ENV.START_ID || 1);
 const JITTER = Number(__ENV.JITTER || 3);
 
 // Số lượng sản phẩm dành riêng cho Flash Sale
-const FLASH_SALE_STOCK = Number(__ENV.FLASH_SALE_STOCK || 1000);
+const FLASH_SALE_STOCK = Number(__ENV.FLASH_SALE_STOCK || 500);
 
 // Thống kê custom
 const accepted = new Counter('flashsale_accepted');
